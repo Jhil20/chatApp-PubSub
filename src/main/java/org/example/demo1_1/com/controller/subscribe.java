@@ -11,42 +11,68 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/subscriber")
 public class subscribe {
+
     @Value("${gcp.project-id}")
     private String projectId;
 
     @Value("${gcp.pubsub.subscription-name}")
     private String subscriptionId;
 
-    String receivedMessage="";
-
     @GetMapping("/subscribeMessage")
-    public ResponseEntity<String> subscribeMessage() throws TimeoutException {
+    public ResponseEntity<String> subscribeMessage() {
         ProjectSubscriptionName name = ProjectSubscriptionName.of(projectId, subscriptionId);
 
-        MessageReceiver messageReceiver =(PubsubMessage message, AckReplyConsumer consumer)->{
-            receivedMessage =message.getData().toStringUtf8();
+        CountDownLatch latch = new CountDownLatch(1);
+        StringBuilder receivedMessageBuilder = new StringBuilder();
+
+        MessageReceiver messageReceiver = (PubsubMessage message, AckReplyConsumer consumer) -> {
+            String receivedMessage = message.getData().toStringUtf8();
             String messageId = message.getMessageId();
-            System.out.println("message ID is : "+messageId);
+
+            System.out.println("Received message: " + receivedMessage);
+            System.out.println("Message ID: " + messageId);
+
+            // Append message details to the response
+            receivedMessageBuilder.append("Message: ").append(receivedMessage)
+                    .append(", ID: ").append(messageId);
+
+            // Acknowledge the message
             consumer.ack();
+
+            // Signal the latch to continue
+            latch.countDown();
         };
 
-        Subscriber subscriber = null;
-        try {
-            subscriber = Subscriber.newBuilder(name, messageReceiver).build();
-            subscriber.startAsync().awaitRunning();
+        Subscriber subscriber = Subscriber.newBuilder(name, messageReceiver).build();
 
-            subscriber.awaitTerminated(1, TimeUnit.SECONDS);
+        try {
+            subscriber.startAsync().awaitRunning();
+            System.out.println("Subscriber started...");
+
+            // Wait for a message or timeout
+            boolean received = latch.await(30, TimeUnit.SECONDS);
+
+            if (!received) {
+                System.out.println("Timeout while waiting for a message.");
+                return ResponseEntity.status(408).body("No message received within the timeout period.");
+            }
+
+            // Return the received message
+            return ResponseEntity.ok("Received message: " + receivedMessageBuilder.toString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(500).body("Interrupted while waiting for a message.");
+        } finally {
+            if (subscriber != null) {
+                subscriber.stopAsync();
+                System.out.println("Subscriber stopped.");
+            }
         }
-        catch (TimeoutException timeoutException)
-        {
-            subscriber.stopAsync();
-        }
-        return ResponseEntity.ok(receivedMessage);
     }
 }

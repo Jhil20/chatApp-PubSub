@@ -23,7 +23,7 @@ public class publish {
 
 
     @PostMapping("/publishMessage")
-    public void publishMessage(@RequestParam("message") String message) throws IOException, ExecutionException, InterruptedException {
+    public void publishMessage(@RequestBody String message) throws IOException, ExecutionException, InterruptedException {
         TopicName topicName = TopicName.of(projectId, topicId);
         Publisher publisher = null;
         try {

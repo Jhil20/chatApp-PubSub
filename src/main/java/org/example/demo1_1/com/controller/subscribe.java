@@ -64,7 +64,7 @@ public class subscribe {
             }
 
             // Return the received message
-            return ResponseEntity.ok("Received message: " + receivedMessageBuilder.toString());
+            return ResponseEntity.ok("{\"message\": \"" + receivedMessageBuilder.toString() + "\"}");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return ResponseEntity.status(500).body("Interrupted while waiting for a message.");

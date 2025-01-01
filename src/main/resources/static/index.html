@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<!-- Username Input Screen -->
+<div id="usernameScreen" class="username-container">
+    <h1>Enter Your Username</h1>
+    <input type="text" id="usernameInput" placeholder="Enter username" autofocus>
+    <button id="startChatBtn">Start Chat</button>
+</div>
+
+<!-- Chat Screen (Hidden Initially) -->
+<div id="chatScreen" class="chat-container" style="display: none;">
+    <div class="chat-header">
+        <h2>Chat Room</h2>
+        <span id="usernameDisplay"></span>
+    </div>
+    <div class="chat-box" id="chatBox">
+        <!-- Messages will appear here -->
+    </div>
+    <div class="chat-input">
+        <input type="text" id="message" placeholder="Type a message..." autofocus>
+        <button id="sendBtn">Send</button>
+        <button id="receiveBtn">Receive</button>
+    </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

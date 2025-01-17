@@ -40,7 +40,7 @@ public class publish {
             if(publisher != null)
             {
                 publisher.shutdown();
-                publisher.awaitTermination(1, TimeUnit.MINUTES);
+                publisher.awaitTermination(5, TimeUnit.SECONDS);
             }
         }
     }

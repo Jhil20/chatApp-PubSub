@@ -6,6 +6,7 @@ import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -23,7 +24,7 @@ public class publish {
 
 
     @PostMapping("/publishMessage")
-    public void publishMessage(@RequestBody String message) throws IOException, ExecutionException, InterruptedException {
+    public ResponseEntity<String> publishMessage(@RequestParam String message) throws IOException, ExecutionException, InterruptedException {
         TopicName topicName = TopicName.of(projectId, topicId);
         Publisher publisher = null;
         try {
@@ -33,6 +34,7 @@ public class publish {
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
             String messageId = messageIdFuture.get();
             System.out.println("Published message ID: " + messageId);
+            return ResponseEntity.ok(message+" "+messageId);
         }
         finally {
             if(publisher != null)

@@ -6,13 +6,12 @@ import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/subscriber")
@@ -25,54 +24,37 @@ public class subscribe {
     private String subscriptionId;
 
     @GetMapping("/subscribeMessage")
-    public ResponseEntity<String> subscribeMessage() {
-        ProjectSubscriptionName name = ProjectSubscriptionName.of(projectId, subscriptionId);
+    public String subscribeMessage() {
+        ProjectSubscriptionName subscriptionName =
+                ProjectSubscriptionName.of(projectId, subscriptionId);
 
-        CountDownLatch latch = new CountDownLatch(1);
-        StringBuilder receivedMessageBuilder = new StringBuilder();
+        StringBuilder receiveMessageBuilder = new StringBuilder();
+        // Instantiate an asynchronous message receiver.
+        MessageReceiver receiver =
+                (PubsubMessage message, AckReplyConsumer consumer) -> {
+                    // Handle incoming message, then ack the received message.
+                    System.out.println("Id: " + message.getMessageId());
+                    System.out.println("Data: " + message.getData().toStringUtf8());
+                    receiveMessageBuilder.append(message.getData().toStringUtf8());
+                    System.out.println("stringBuilder Data: " + receiveMessageBuilder);
+                    consumer.ack();
+                };
 
-        MessageReceiver messageReceiver = (PubsubMessage message, AckReplyConsumer consumer) -> {
-            String receivedMessage = message.getData().toStringUtf8();
-            String messageId = message.getMessageId();
-
-            System.out.println("Received message: " + receivedMessage);
-            System.out.println("Message ID: " + messageId);
-
-            // Append message details to the response
-            receivedMessageBuilder.append("Message: ").append(receivedMessage)
-                    .append(", ID: ").append(messageId);
-
-            // Acknowledge the message
-            consumer.ack();
-
-            // Signal the latch to continue
-            latch.countDown();
-        };
-
-        Subscriber subscriber = Subscriber.newBuilder(name, messageReceiver).build();
-
+        Subscriber subscriber = null;
         try {
+            subscriber = Subscriber.newBuilder(subscriptionName, receiver).build();
+            System.out.println("subscriber : "+ subscriber);
+//             Start the subscriber.
             subscriber.startAsync().awaitRunning();
-            System.out.println("Subscriber started...");
 
-            // Wait for a message or timeout
-            boolean received = latch.await(30, TimeUnit.SECONDS);
-
-            if (!received) {
-                System.out.println("Timeout while waiting for a message.");
-                return ResponseEntity.status(408).body("No message received within the timeout period.");
-            }
-
-            // Return the received message
-            return ResponseEntity.ok("{\"message\": \"" + receivedMessageBuilder.toString() + "\"}");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return ResponseEntity.status(500).body("Interrupted while waiting for a message.");
-        } finally {
-            if (subscriber != null) {
-                subscriber.stopAsync();
-                System.out.println("Subscriber stopped.");
-            }
+            System.out.printf("Listening for messages on %s:\n", subscriptionName.toString());
+//             Allow the subscriber to run for 30s unless an unrecoverable error occurs.
+            subscriber.awaitTerminated(5, TimeUnit.SECONDS);
         }
+        catch (TimeoutException timeoutException) {
+            // Shut down the subscriber after 30s. Stop receiving messages.
+            subscriber.stopAsync();
+        }
+        return receiveMessageBuilder.toString();
     }
 }
